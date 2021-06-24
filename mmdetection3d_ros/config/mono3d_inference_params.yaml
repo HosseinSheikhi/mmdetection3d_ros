@@ -1,0 +1,9 @@
+mmdetection3d_ros: #name space (same as launch file)
+  mmdetection3d_ros: # package name
+    ros__parameters:
+      detector_cfg: "src/mmdetection3d_ros/configs/fcos3d/fcos3d_r101_caffe_fpn_gn-head_dcn_2x8_1x_nus-mono3d.py"
+      checkpoint: /home/hossein/3ddet_ws/src/mmdetection3d_ros/checkpoints/fcos3d_r101_caffe_fpn_gn-head_dcn_2x8_1x_nus-mono3d_20210425_181341-8d5a21fe.pth
+      device: cuda:0
+      #cam_intrinsic: [[809.2209905677063, 0.0, 829.2196003259838], [0.0, 809.2209905677063, 481.77842384512485],[0.0, 0.0, 1.0]]
+      #img_sub_topic: /camera/image_raw
+

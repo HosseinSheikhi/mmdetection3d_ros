@@ -12,30 +12,22 @@ from mmdet3d.datasets.pipelines import Compose
 from mmdet3d.core.bbox.structures.cam_box3d import CameraInstance3DBoxes
 
 
-def inference_mono_3d_detector(model, image):
-    """Inference image with the monocular 3D detector.
-
-    Args:
-        model (nn.Module): The loaded detector.
-        image (str): Image files.
-        ann_file (str): Annotation files.
-
-    Returns:
-        tuple: Predicted results and data from pipeline.
+def inference_init_data_dict(model, cam_intrinsic):
+    """
+    During inference, just image, and file name will change between consecutive calls to inference,
+    so to save the overhead of creating the data pipline in each call to inference, we create the base of the data,
+    and return it, so befor each call to inference, we just have to modify the file name, and image of data dictionary
+    So this method is just called once
+    :param model: The loaded detector
+    :param cam_intrinsic: camera intrinsic parameters
+    :return: data as a dict
     """
     cfg = model.cfg
-    device = next(model.parameters()).device  # model device
-    # build the data pipeline
-    test_pipeline = deepcopy(cfg.data.test.pipeline)
-    test_pipeline = Compose(test_pipeline)
     box_type_3d, box_mode_3d = get_box_type(cfg.data.test.box_type_3d)
-    # TODO: filename is the address the results will be saved, it must be change in each call to this function
-    # otherwise its just replacing the prev image
     data = dict(
-        img=image,
-        img_prefix=None,
-        img_info=dict(
-            filename="/home/hossein/3ddet_ws/demo/data/nuscenes/n015-2018-07-24-11-22-45+0800__CAM_BACK__1532402927637525.jpg"),
+        img=None,
+        img_prefix=None,  # modify for each image
+        img_info=dict(filename="/home/hossein/3ddet_ws/demo/ros-inference/"),  # modify for each image
         box_type_3d=box_type_3d,
         box_mode_3d=box_mode_3d,
         img_fields=[],
@@ -46,15 +38,60 @@ def inference_mono_3d_detector(model, image):
         mask_fields=[],
         seg_fields=[])
 
-    # TODO: cam intrinsic must be defined as a ROS2 Param and pass to this function as an argument
     # camera points to image conversion
     if box_mode_3d == Box3DMode.CAM:
-        data['img_info'].update(dict(
-            cam_intrinsic=[[809.2209905677063, 0.0, 829.2196003259838], [0.0, 809.2209905677063, 481.77842384512485],
-                           [0.0, 0.0, 1.0]]))
-        # data['img_info'].update(dict(
-        #     cam_intrinsic=[[1696.8, 0.0, 960.5], [0.0, 1696.8, 540.5],
-        #                    [0.0, 0.0, 1.0]]))
+        data['img_info'].update(dict(cam_intrinsic=cam_intrinsic))
+
+    return data
+
+
+def inference_mono_3d_detector(model, image, data=None):
+    """Inference image with the monocular 3D detector.
+
+    Args:
+        model (nn.Module): The loaded detector.
+        image (str): Image files.
+        ann_file (str): Annotation files.
+
+    Returns:
+        tuple: Predicted results and data from pipeline.
+    """
+
+    cfg = model.cfg
+    device = next(model.parameters()).device  # model device
+    # build the data pipeline
+    test_pipeline = deepcopy(cfg.data.test.pipeline)
+    test_pipeline = Compose(test_pipeline)
+    if not (isinstance(data, dict)):  # if the initialized data is not passed create one
+
+        box_type_3d, box_mode_3d = get_box_type(cfg.data.test.box_type_3d)
+        # TODO: filename is the address the results will be saved, it must be change in each call to this function
+        # otherwise its just replacing the prev image
+        data = dict(
+            img=image,
+            img_prefix=None,
+            img_info=dict(
+                filename="/home/hossein/3ddet_ws/demo/data/nuscenes/n015-2018-07-24-11-22-45+0800__CAM_BACK__1532402927637525.jpg"),
+            box_type_3d=box_type_3d,
+            box_mode_3d=box_mode_3d,
+            img_fields=[],
+            bbox3d_fields=[],
+            pts_mask_fields=[],
+            pts_seg_fields=[],
+            bbox_fields=[],
+            mask_fields=[],
+            seg_fields=[])
+
+        # TODO: cam intrinsic must be defined as a ROS2 Param and pass to this function as an argument
+        # camera points to image conversion
+        if box_mode_3d == Box3DMode.CAM:
+            data['img_info'].update(dict(
+                cam_intrinsic=[[809.2209905677063, 0.0, 829.2196003259838],
+                               [0.0, 809.2209905677063, 481.77842384512485],
+                               [0.0, 0.0, 1.0]]))
+            # data['img_info'].update(dict(
+            #     cam_intrinsic=[[1696.8, 0.0, 960.5], [0.0, 1696.8, 540.5],
+            #                    [0.0, 0.0, 1.0]]))
 
     data = test_pipeline(data)
 
@@ -123,7 +160,6 @@ def show_proj_det_result_meshlab(img, data,
 
     # read from file because img in data_dict has undergone pipeline transform
     # img = mmcv.imread(img_filename)
-
 
     if 'pts_bbox' in result[0].keys():
         result[0] = result[0]['pts_bbox']
