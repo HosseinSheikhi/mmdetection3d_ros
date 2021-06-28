@@ -6,9 +6,7 @@ parameters_file_name = '/home/hossein/3ddet_ws/src/mmdetection3d_ros/config/mono
 
 
 def generate_launch_description():
-    # parameters_file_path = str(pathlib.Path(__file__).parent.absolute())  # get current path and go one level up
-    # parameters_file_path = parameters_file_path.replace('launch', 'config/')
-    # parameters_file_path += parameters_file_name
+
     parameters_file_path = parameters_file_name
     return LaunchDescription([
         Node(
