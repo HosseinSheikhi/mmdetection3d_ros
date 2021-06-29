@@ -4,9 +4,9 @@ from mmdetection3d_ros.inference import inference_mono_3d_detector, show_result_
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_services_default
-from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
+from vision_msgs.msg import Detection3DArray, Detection3D, ObjectHypothesisWithPose
 import copy
 import numpy as np
 
@@ -23,14 +23,17 @@ class MMDET3DInference(Node):
         self.score_thr = None
         self.show = None
         self.snapshot = None
-
         self.img_sub_topic = ""
+        self.inference_pub_topic = ""
         self.image_ctr = 0
 
         self.parameters()
 
         self.img_subscriber = self.create_subscription(Image, self.img_sub_topic, self.img_cb,
                                                        qos_profile=qos_profile_services_default)
+        self.inference_publisher = self.create_publisher(Detection3DArray, self.inference_pub_topic,
+                                                         qos_profile=qos_profile_services_default)
+
         # build the model from a config file and a checkpoint file
         self.model = init_model(self.cfg, self.checkpoint, device=self.device)
         # initialize the data
@@ -47,6 +50,7 @@ class MMDET3DInference(Node):
         self.declare_parameter('mmdet_3d.show', True)
         self.declare_parameter('mmdet_3d.snapshot', True)
         self.declare_parameter('mmdet3d_ros.img_sub_topic', "")
+        self.declare_parameter('mmdet3d_ros.inference_pub_topic', "")
 
         # get parameters
         self.cfg = self.get_parameter("mmdet_3d.detector_cfg").get_parameter_value().string_value
@@ -64,6 +68,7 @@ class MMDET3DInference(Node):
         self.show = self.get_parameter('mmdet_3d.show').get_parameter_value().bool_value
         self.snapshot = self.get_parameter('mmdet_3d.snapshot').get_parameter_value().bool_value
         self.img_sub_topic = self.get_parameter('mmdet3d_ros.img_sub_topic').get_parameter_value().string_value
+        self.inference_pub_topic = self.get_parameter('mmdet3d_ros.inference_pub_topic').get_parameter_value().string_value
 
     def inference(self, image):
         """
@@ -75,10 +80,44 @@ class MMDET3DInference(Node):
         modified_data['img'] = image
         modified_data['img_info']['filename'] = self.data['img_info']['filename'] + "inference_" + str(
             self.image_ctr) + ".jpg"
-        print(modified_data['img_info']['filename'])
 
         result, data = inference_mono_3d_detector(self.model, image, modified_data)
         return result, data
+
+    def publish_inference(self, res):
+        """
+        TODO am not quite sure am filling the msg correctly
+        Args:
+            res:
+
+        Returns:
+
+        """
+        num_obj = len(res[0]['boxes_3d'])
+        bbox = res[0]['boxes_3d'].tensor.numpy()
+        scores = res[0]['scores_3d'].numpy()
+        labels = res[0]['labels_3d'].numpy()
+        attr = res[0]['attrs_3d'].numpy() # TODO what what this
+
+
+        full_msg = Detection3DArray()
+        for i in range(0, num_obj):
+            msg = Detection3D()
+            hp = ObjectHypothesisWithPose()
+            msg.bbox.center.position.x = float(bbox[i][0])
+            msg.bbox.center.position.y = float(bbox[i][1])
+            msg.bbox.center.position.z = float(bbox[i][2])
+            msg.bbox.size.x = float(bbox[i][3])
+            msg.bbox.size.y = float(bbox[i][4])
+            msg.bbox.size.z = float(bbox[i][5])
+
+            hp.hypothesis.class_id = str(labels[i])
+            hp.hypothesis.score = float(scores[i])
+            msg.results.append(hp)
+            full_msg.detections.append(msg)
+
+        self.inference_publisher.publish(full_msg)
+
 
     def show_inferennce(self, image, data, result):
         """
@@ -106,6 +145,7 @@ class MMDET3DInference(Node):
         cv_image = CvBridge().imgmsg_to_cv2(image, desired_encoding='bgr8')
         res, data = self.inference(cv_image)
         self.show_inferennce(cv_image, data, res)
+        self.publish_inference(res)
 
 
 def main(args=None):

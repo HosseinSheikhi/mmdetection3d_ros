@@ -8,6 +8,8 @@
   <license>Apache License 2.0</license>
 
   <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>vision_msgs</depend>
   <depend>mmcv</depend>
   <depend>mmdet3d</depend>
   <depend>torch</depend>

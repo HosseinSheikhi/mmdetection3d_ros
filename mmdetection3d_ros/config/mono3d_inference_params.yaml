@@ -7,8 +7,9 @@
         cam_intrinsic: "[[809.2209905677063, 0.0, 829.2196003259838], [0.0, 809.2209905677063, 481.77842384512485],[0.0, 0.0, 1.0]]"
         out_dir: "src/mmdetection3d_ros/demo"                         # Directory to save visualized result.
         score_thr: 0.01                                               # Minimum score of bboxes to be shown. Default: 0.0
-        show: True                                                    # Visualize the results online. Defaults to True.
-        snapshot: True                                                # Whether to save the online results. Defaults to True.
+        show: False                                                    # Visualize the results online. Defaults to True.
+        snapshot: False                                                # Whether to save the online results. Defaults to True.
 
       mmdet3d_ros:
         img_sub_topic: "/camera/image_raw"                            # Topic images will be subscirbed on
+        inference_pub_topic: "/mmdet3d/mono"                          # Topic inference results will be published on
